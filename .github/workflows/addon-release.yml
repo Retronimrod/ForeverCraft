@@ -1,9 +1,11 @@
-name: Build ForeverCraft release
+name: Publish ForeverCraft release
 
 on:
   push:
     branches: [main]
-    paths: [ForeverCraft/ForeverCraft_Forever.toc]
+    paths:
+      - ForeverCraft/ForeverCraft_Forever.toc
+      - .github/workflows/addon-release.yml
   workflow_dispatch:
 
 permissions:
@@ -17,7 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Package and publish
+      - name: Prepare GitHub release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -25,11 +28,58 @@ jobs:
           version="$(sed -n 's/^## Version: //p' ForeverCraft/ForeverCraft_Forever.toc | tr -d '\r')"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]
           tag="v$version"
-          if gh release view "$tag" >/dev/null 2>&1; then
+          archive="ForeverCraft-$tag.zip"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            zip -qr "$archive" ForeverCraft
+            unzip -tq "$archive"
+            gh release create "$tag" "$archive" --target "$GITHUB_SHA" \
+              --prerelease --title "ForeverCraft $tag" --notes-file RELEASE-NOTES.md
+          fi
+          printf 'tag=%s\narchive=%s\n' "$tag" "$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to CurseForge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CF_TOKEN: ${{ secrets.CURSEFORGED }}
+          CF_PROJECT_ID: "1818399"
+          TAG: ${{ steps.release.outputs.tag }}
+          ARCHIVE: ${{ steps.release.outputs.archive }}
+        run: |
+          set -euo pipefail
+          receipt="curseforge-upload.json"
+          assets="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          if grep -Fxq "$receipt" <<< "$assets"; then
+            echo "$TAG has already been uploaded to CurseForge."
             exit 0
           fi
-          archive="ForeverCraft-$tag.zip"
-          zip -qr "$archive" ForeverCraft
-          unzip -tq "$archive"
-          gh release create "$tag" "$archive" --target "$GITHUB_SHA" \
-            --prerelease --title "ForeverCraft $tag" --notes-file RELEASE-NOTES.md
+
+          if [[ -z "$CF_TOKEN" ]]; then
+            echo "The CURSEFORGED repository secret is missing." >&2
+            exit 1
+          fi
+
+          cd "$RUNNER_TEMP"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$ARCHIVE"
+          unzip -tq "$ARCHIVE"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq '.body' > changelog.md
+
+          release_type=release
+          case "$TAG" in
+            *-alpha*) release_type=alpha ;;
+            *-beta*|*-rc*|*-*) release_type=beta ;;
+          esac
+          jq -n --rawfile changelog changelog.md \
+            --arg name "ForeverCraft $TAG" --arg releaseType "$release_type" \
+            '{changelog: $changelog, changelogType: "markdown", displayName: $name,
+              gameVersionNames: ["1.60.1"], releaseType: $releaseType}' > metadata.json
+
+          curl --fail-with-body --show-error --silent \
+            -H "X-Api-Token: $CF_TOKEN" \
+            -F 'metadata=<metadata.json;type=application/json' \
+            -F "file=@$ARCHIVE;type=application/zip" \
+            "https://www.curseforge.com/api/projects/$CF_PROJECT_ID/upload-file" \
+            -o "$receipt" || { [[ ! -s "$receipt" ]] || cat "$receipt"; exit 1; }
+
+          file_id="$(jq -er '.id | select(type == "number" and . > 0)' "$receipt")"
+          echo "CurseForge accepted $TAG as file $file_id."
+          gh release upload "$TAG" "$receipt" --repo "$GITHUB_REPOSITORY"

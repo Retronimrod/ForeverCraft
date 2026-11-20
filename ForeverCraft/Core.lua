@@ -810,6 +810,7 @@ local function refreshShopping()
 end
 
 local function showShopping(dock)
+    if addon.CloseProfessionGuide then addon.CloseProfessionGuide() end
     if InCombatLockdown() then return end
     addon.CloseDisenchant()
     if not shoppingWindow then
@@ -1257,6 +1258,7 @@ end
 local function localize()
     addon.RefreshFishingLog()
     addon.RefreshDisenchantText()
+    if addon.RefreshProfessionGuide then addon.RefreshProfessionGuide() end
     if welcomeColumn and welcomeColumn:IsVisible() then welcomeColumn.refreshText() end
     if not planner then return end
     local L = addon.GetText()
@@ -1406,6 +1408,10 @@ local function attach()
         end
         root:HookScript("OnHide", leaveShopping)
         addon.AttachDisenchant(root, leaveShopping, header)
+        addon.AttachProfessionGuide(root, page, function()
+            leaveShopping()
+            addon.CloseDisenchant()
+        end)
         addon.AttachFishing(root, page)
         root:HookScript("OnShow", positionTab)
         positionTab()

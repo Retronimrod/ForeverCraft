@@ -405,6 +405,7 @@ function addon.AttachDisenchant(root, closeShopping, nativeHeader)
         if InCombatLockdown() or not hasSpell() then return end
         if panel and panel:IsShown() then panel:Hide(); return end
         closeShopping()
+        if addon.CloseProfessionGuide then addon.CloseProfessionGuide() end
         if not panel then makePanel(root, nativeHeader) end
         panel:Show()
     end)

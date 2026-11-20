@@ -1,0 +1,4 @@
+<Bindings>
+    <Binding name="CLICK ForeverCraftDisenchantAction:LeftButton" header="FOREVERCRAFT" />
+    <Binding name="CLICK ForeverCraftFishingCast:LeftButton" />
+</Bindings>

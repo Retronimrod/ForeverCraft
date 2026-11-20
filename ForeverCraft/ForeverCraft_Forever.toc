@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: ForeverCraft
+## Author: Fabian (Nimri)
+## Category: Professions
+## IconTexture: Interface\AddOns\ForeverCraft\Art\ForeverCraftIcon
+## Notes: Wider professions window and a reagent planner for WoW Forever.
+## Version: 0.1.114-alpha
+## OptionalDeps: Auc-Advanced, Auctionator, ProfessionDB
+## AllowLoadGameType: forever
+## SavedVariables: ForeverCraftDB
+## SavedVariablesPerCharacter: ForeverCraftShopping, ForeverCraftIntermediateRecipes, ForeverCraftWorkshopLog
+
+Locale.lua
+ClientLocales.lua
+Materials.lua
+SkillThresholdData.lua
+SkillScale.lua
+SideShopping.lua
+Disenchant.lua
+Fishing.lua
+WorkshopLog.lua
+Core.lua

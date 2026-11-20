@@ -1,0 +1,40 @@
+name: Refresh Forever profession data
+
+on:
+  schedule:
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forevercraft-profession-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare upstream thresholds and build ZIP
+        id: data
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: python3 tools/update_profession_data.py --output dist
+      - name: Publish GitHub prerelease
+        if: steps.data.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.data.outputs.tag }}
+          ARCHIVE: ${{ steps.data.outputs.archive }}
+          LIB_VERSION: ${{ steps.data.outputs.upstream }}
+          CLIENT_BUILD: ${{ steps.data.outputs.build }}
+        run: |
+          unzip -tq "$ARCHIVE"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" "$ARCHIVE" \
+            --target "$GITHUB_SHA" --prerelease --title "ForeverCraft $RELEASE_TAG" \
+            --notes "Updated bundled skill thresholds from LibProfessionDB $LIB_VERSION for WoW Forever build $CLIENT_BUILD."

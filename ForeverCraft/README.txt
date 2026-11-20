@@ -1,4 +1,4 @@
-ForeverCraft 0.1.114-alpha – WoW Forever
+ForeverCraft 0.1.127 – WoW Forever
 
 Installation
 Den Ordner ForeverCraft aus der ZIP in Interface/AddOns deiner

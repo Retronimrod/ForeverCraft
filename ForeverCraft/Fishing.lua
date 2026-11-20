@@ -58,6 +58,66 @@ local function isFishingChannel(eventSpell)
         or (name and name == C_Spell.GetSpellName(fishingSpell))
 end
 
+local backgroundChannels = { "Sound_MusicVolume", "Sound_AmbienceVolume", "Sound_DialogVolume" }
+local backgroundReduction = { 0, 25, 50, 75, 100 }
+
+function addon.GetFishingAudioLevel()
+    local db = ForeverCraftDB
+    local level = db and tonumber(db.fishingAudioLevel)
+    if level and backgroundReduction[level] then return level end
+    return db and db.fishingSoundBoost and 3 or 1
+end
+
+function addon.GetFishingAudioReduction()
+    return backgroundReduction[addon.GetFishingAudioLevel()]
+end
+
+local audioRestoreTimer
+local function restoreFishingAudio()
+    if audioRestoreTimer then
+        audioRestoreTimer:Cancel()
+        audioRestoreTimer = nil
+    end
+    local db = ForeverCraftDB
+    if not db or type(db.fishingAudioRestore) ~= "table" then return end
+    for name, saved in pairs(db.fishingAudioRestore) do
+        if tonumber(C_CVar.GetCVar(name)) == saved.applied then C_CVar.SetCVar(name, saved.value) end
+    end
+    db.fishingAudioRestore = nil
+end
+
+local function startFishingAudio()
+    if audioRestoreTimer then
+        audioRestoreTimer:Cancel()
+        audioRestoreTimer = nil
+    end
+    local db = ForeverCraftDB
+    if not db then return end
+    local reduction = addon.GetFishingAudioReduction()
+    if reduction == 0 and not db.fishingSoundBackground then return end
+    local saved = db.fishingAudioRestore or {}
+    db.fishingAudioRestore = saved
+    local function apply(name, target)
+        local current = tonumber(C_CVar.GetCVar(name))
+        if not saved[name] and current and current ~= target then
+            C_CVar.SetCVar(name, target)
+            saved[name] = { value = current, applied = tonumber(C_CVar.GetCVar(name)) or target }
+        end
+    end
+    if reduction > 0 then
+        for _, name in ipairs(backgroundChannels) do
+            local current = tonumber(C_CVar.GetCVar(name))
+            if current then apply(name, current * (1 - reduction / 100)) end
+        end
+    end
+    if db.fishingSoundBackground then apply("Sound_EnableSoundWhenGameIsInBG", 1) end
+end
+
+function addon.RefreshFishingAudio()
+    restoreFishingAudio()
+    if isFishingChannel() then startFishingAudio() end
+end
+
 local function configureCast()
     local name = C_Spell.GetSpellName(fishingSpell)
     if name then cast:SetAttribute("macrotext", "/cast [nocombat,noflying,nostealth,noswimming,novehicleui] " .. name) end
@@ -112,12 +172,14 @@ events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("UPDATE_BINDINGS")
 events:RegisterEvent("PLAYER_LOGIN")
 events:RegisterEvent("PLAYER_LOGOUT")
+events:RegisterEvent("PLAYER_LEAVING_WORLD")
 events:RegisterEvent("LOOT_READY")
 events:RegisterEvent("LOOT_OPENED")
 events:RegisterEvent("LOOT_SLOT_CLEARED")
 events:RegisterEvent("LOOT_CLOSED")
 events:SetScript("OnEvent", function(_, event, slot, _, eventSpell)
-    if event == "PLAYER_LOGOUT" then
+    if event == "PLAYER_LOGOUT" or event == "PLAYER_LEAVING_WORLD" then
+        restoreFishingAudio()
         restoreInteract()
     elseif event == "LOOT_READY" or event == "LOOT_OPENED" then
         rememberLoot()
@@ -147,7 +209,9 @@ events:SetScript("OnEvent", function(_, event, slot, _, eventSpell)
         end
         if refreshLog then refreshLog() end
     else
+        if event == "PLAYER_LOGIN" then addon.RefreshFishingAudio() end
         if event == "UNIT_SPELLCAST_CHANNEL_START" and isFishingChannel(eventSpell) then
+            startFishingAudio()
             if GetBindingKey(binding) then prepareInteract() end
             local newSession = not sessionStart
             sessionStart = sessionStart or GetTime()
@@ -157,6 +221,9 @@ events:SetScript("OnEvent", function(_, event, slot, _, eventSpell)
             if newSession and option("fishingAutoOpen") then openLog() end
             if refreshLog then refreshLog() end
         elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+            if ForeverCraftDB and ForeverCraftDB.fishingAudioRestore and not audioRestoreTimer then
+                audioRestoreTimer = C_Timer.NewTimer(3, restoreFishingAudio)
+            end
             restoreInteract()
             updateBinding(false)
         else
@@ -323,10 +390,35 @@ local function buildLog()
     track:SetAllPoints()
     track:SetColorTexture(0.20, 0.16, 0.12)
 
+    local function showCatchTooltip(owner)
+        if not owner.itemLink then return end
+        GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+        GameTooltip:SetHyperlink(owner.itemLink)
+        GameTooltip:Show()
+    end
+    local function hideCatchTooltip(owner)
+        if GameTooltip:IsOwned(owner) then GameTooltip:Hide() end
+    end
+    local function enableCatchTooltip(owner)
+        owner:EnableMouse(true)
+        owner:SetScript("OnEnter", showCatchTooltip)
+        owner:SetScript("OnLeave", hideCatchTooltip)
+        owner:SetScript("OnHide", hideCatchTooltip)
+    end
+    local function updateCatchTooltip(owner, item)
+        local link = item and item.link
+        if owner.itemLink == link then return end
+        owner.itemLink = link
+        if GameTooltip:IsOwned(owner) then
+            if link then showCatchTooltip(owner) else hideCatchTooltip(owner) end
+        end
+    end
+
     local recent = CreateFrame("Frame", nil, body)
     recent:SetPoint("TOPLEFT", 12, -99)
     recent:SetPoint("TOPRIGHT", -12, -99)
     recent:SetHeight(36)
+    enableCatchTooltip(recent)
     local recentFill = recent:CreateTexture(nil, "BACKGROUND")
     recentFill:SetAllPoints()
     recentFill:SetColorTexture(0.29, 0.21, 0.14, 0.95)
@@ -406,6 +498,7 @@ local function buildLog()
         rankBar:SetValue(rank or 0)
         rankGain:SetText(rank and startingSkill and rank > startingSkill
             and L.fishingGain:format(rank - startingSkill) or "")
+        updateCatchTooltip(recent, latest)
         lastCatch:SetText(latest and latest.link or "–")
         recentIcon:SetTexture(latest and C_Item.GetItemIconByID(latest.itemID) or nil)
         table.sort(items, function(a, b)
@@ -419,6 +512,7 @@ local function buildLog()
                 row:SetPoint("TOPLEFT", 0, -(i - 1) * 20)
                 row:SetPoint("TOPRIGHT", 0, -(i - 1) * 20)
                 row:SetHeight(20)
+                enableCatchTooltip(row)
                 row.icon = row:CreateTexture(nil, "ARTWORK")
                 row.icon:SetSize(16, 16)
                 row.icon:SetPoint("LEFT")
@@ -432,6 +526,7 @@ local function buildLog()
                 rows[i] = row
             end
             local item = items[i]
+            updateCatchTooltip(row, item)
             row.icon:SetTexture(item and C_Item.GetItemIconByID(item.itemID) or nil)
             row.name:SetText(item and item.link or L.fishingEmpty)
             row.count:SetText(item and ("×%d"):format(item.count) or "")

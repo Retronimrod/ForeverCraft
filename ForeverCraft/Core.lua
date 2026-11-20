@@ -810,6 +810,7 @@ local function refreshShopping()
 end
 
 local function showShopping(dock)
+    if addon.CloseProfessionGuide then addon.CloseProfessionGuide() end
     if InCombatLockdown() then return end
     addon.CloseDisenchant()
     if not shoppingWindow then
@@ -1132,28 +1133,11 @@ local function updateLayout(fromSizeChange)
             recipeBaseWidth = contentWidth - listExtra - formExtra
         end
     end
-    local baseWidth = originalWidth
-    if recipes or overview then
-        baseWidth = recipeBaseWidth or (page.GetDesiredPageWidth and page:GetDesiredPageWidth()) or originalWidth
-    end
-    local forList, forForm = 0, 0
-    if (recipes or overview) and (not ForeverCraftDB or ForeverCraftDB.wide ~= false) then
-        local scale = root:GetEffectiveScale() / UIParent:GetEffectiveScale()
-        local left = (root:GetLeft() or 20) * scale
-        local available = math.max(0, (UIParent:GetWidth() - left) / scale - 66 - baseWidth)
-        local previousListExtra = math.floor(baseWidth * 0.57)
-        local previousFormExtra = baseWidth - previousListExtra
-        local listExtra = math.max(0, (originalListWidth + previousListExtra) * 2 / 3 - originalListWidth)
-        local formExtra = math.max(0, (originalFormWidth + previousFormExtra) * 0.75 - originalFormWidth)
-        local desiredExtra = listExtra + formExtra
-        local fraction = desiredExtra > 0 and math.min(1, available / desiredExtra) or 0
-        forList, forForm = math.floor(listExtra * fraction), math.floor(formExtra * fraction)
-    end
-    local extra = forList + forForm
-    local targetWidth = baseWidth + extra
-    local welcomeWidth = 0
-    if showWelcome then
-        baseWidth = originalWidth
+    local baseWidth = recipes and (recipeBaseWidth
+        or (page.GetDesiredPageWidth and page:GetDesiredPageWidth())
+        or originalWidth) or originalWidth
+    local sharedWidth, logVisible
+    if book then
         local cards = book.ProfessionsContentFrame
         local primary = cards and cards.PrimaryProfession1
         local third = cards and cards.SecondaryProfession3
@@ -1178,25 +1162,45 @@ local function updateLayout(fromSizeChange)
             local rightInset = left - rootLeft + 6
             local minimumWidth = start + minimumCardWidth + rightInset
             local scale = root:GetEffectiveScale() / UIParent:GetEffectiveScale()
-            local room = UIParent:GetWidth() / scale - rootLeft - 58
-            local desiredWidth = math.min(room, math.max(targetWidth, minimumWidth))
+            local room = UIParent:GetWidth() / scale - rootLeft - 66
+            local preferredCardWidth = math.floor(bottomCard:GetWidth() * 1.3 + 0.5)
+            local desiredWidth = math.min(room, start + preferredCardWidth + rightInset)
             local cardWidth = desiredWidth - start - rightInset
             if cardWidth > 0 and cardHeight > 0 and room >= minimumWidth then
+                sharedWidth = desiredWidth
+            end
+            if showWelcome and cardWidth >= minimumCardWidth and cardHeight > 0 then
+                logVisible = true
                 welcomeColumn = welcomeColumn or createWelcomeColumn(book)
                 welcomeColumn:SetPoint("TOPLEFT", root, "TOPLEFT", start, top - rootTop - 6)
                 welcomeColumn:SetSize(cardWidth, cardHeight)
                 local artSize = math.max(1, cardWidth - 12)
                 welcomeColumn.art:SetSize(artSize, artSize)
                 welcomeColumn.refreshText()
-                welcomeWidth = math.max(0, desiredWidth - baseWidth)
             end
         end
     end
-    if welcomeColumn then welcomeColumn:SetShown(welcomeWidth > 0) end
-    appliedWidth = baseWidth + (showWelcome and welcomeWidth or extra)
-    if not recipes then
-        extra, forList, forForm = 0, 0, 0
+    if welcomeColumn then welcomeColumn:SetShown(logVisible == true) end
+    if addon.SetProfessionGuideOverviewCard then
+        addon.SetProfessionGuideOverviewCard(logVisible and welcomeColumn or nil)
     end
+    local forList, forForm = 0, 0
+    if recipes and (not ForeverCraftDB or ForeverCraftDB.wide ~= false) then
+        local scale = root:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        local room = UIParent:GetWidth() / scale - (root:GetLeft() or 20) - 66
+        local previousListExtra = math.floor(baseWidth * 0.57)
+        local previousFormExtra = baseWidth - previousListExtra
+        local listExtra = math.max(0, (originalListWidth + previousListExtra) * 2 / 3 - originalListWidth)
+        local formExtra = math.max(0, (originalFormWidth + previousFormExtra) * 0.75 - originalFormWidth)
+        local desiredExtra = listExtra + formExtra
+        local target = sharedWidth or math.min(room, baseWidth + desiredExtra)
+        local extraWidth = math.max(0, target - baseWidth)
+        local listShare = desiredExtra > 0 and listExtra / desiredExtra or 0.5
+        forList = math.floor(extraWidth * listShare)
+        forForm = extraWidth - forList
+    end
+    local extra = forList + forForm
+    appliedWidth = overview and (sharedWidth or originalWidth) or (baseWidth + extra)
     appliedFormWidth = originalFormWidth + forForm
     if math.abs(list:GetWidth() - originalListWidth - forList) > 0.5 then
         list:SetWidth(originalListWidth + forList)
@@ -1209,12 +1213,14 @@ local function updateLayout(fromSizeChange)
         if not fromSizeChange and UpdateUIPanelPositions and root:IsShown() then UpdateUIPanelPositions(root) end
     end
     if header and math.abs(header:GetWidth() - headerWidth - extra) > 0.5 then header:SetWidth(headerWidth + extra) end
-    if rankBar and math.abs(rankBar:GetWidth() - rankWidth - extra) > 0.5 then
+    local guideSpace = recipes and addon.GetProfessionGuideHeaderSpace and addon.GetProfessionGuideHeaderSpace() or 0
+    local rankExtra = extra - guideSpace
+    if rankBar and math.abs(rankBar:GetWidth() - rankWidth - rankExtra) > 0.5 then
         local oldRankWidth = rankBar:GetWidth()
         local maskOffset = rankBar.overrideMaskRightOffset or 0
         local progress = (rankBar.Mask:GetWidth() - maskOffset) / oldRankWidth
-        rankBar:SetWidth(rankWidth + extra)
-        for region, baseWidth in pairs(rankRegions) do region:SetWidth(baseWidth + extra) end
+        rankBar:SetWidth(rankWidth + rankExtra)
+        for region, baseWidth in pairs(rankRegions) do region:SetWidth(baseWidth + rankExtra) end
         rankBar.Mask:SetWidth(math.max(0.01, rankBar:GetMaskWidth(progress)))
     end
     applyingLayout = false
@@ -1257,6 +1263,7 @@ end
 local function localize()
     addon.RefreshFishingLog()
     addon.RefreshDisenchantText()
+    if addon.RefreshProfessionGuide then addon.RefreshProfessionGuide() end
     if welcomeColumn and welcomeColumn:IsVisible() then welcomeColumn.refreshText() end
     if not planner then return end
     local L = addon.GetText()
@@ -1406,6 +1413,10 @@ local function attach()
         end
         root:HookScript("OnHide", leaveShopping)
         addon.AttachDisenchant(root, leaveShopping, header)
+        addon.AttachProfessionGuide(root, page, function()
+            leaveShopping()
+            addon.CloseDisenchant()
+        end)
         addon.AttachFishing(root, page)
         root:HookScript("OnShow", positionTab)
         positionTab()
@@ -1508,11 +1519,14 @@ local settingPages = {
         }},
         { title = "settingsActionBar", macro = true },
     }},
-    { title = "settingsFishing", groups = {
+    { title = "settingsFishing", height = 522, groups = {
         { title = "settingsFishingBinding", fishingBinding = true },
         { title = "settingsFishingLog", options = {
             { key = "fishingAutoOpen", label = "settingsFishingAutoOpen" },
             { key = "fishingShowValue", label = "settingsFishingShowValue" },
+        }},
+        { title = "settingsFishingAudio", detail = "settingsFishingAudioDetail", audioLevel = true, options = {
+            { key = "fishingSoundBackground", label = "settingsFishingSoundBackground", defaultOff = true },
         }},
     }},
     { title = "settingsMarket", groups = {
@@ -1530,6 +1544,8 @@ local settingPages = {
 local function applySetting(key)
     if key == "fishingAutoOpen" or key == "fishingShowValue" then
         addon.RefreshFishingLog()
+    elseif key == "fishingSoundBackground" then
+        addon.RefreshFishingAudio()
     elseif key == "wide" then
         queueLayout()
     elseif key == "showSkillScale" then
@@ -1551,6 +1567,7 @@ end
 
 local function selectSettingsPage(index)
     settings.selected = index
+    settings:SetHeight(settingPages[index].height or 388)
     for pageIndex, view in ipairs(settings.pages) do
         local selected = pageIndex == index
         view.panel:SetShown(selected)
@@ -1615,6 +1632,7 @@ local function buildSettings()
         local y = -35
         for _, group in ipairs(pageData.groups) do
             local height = 43 + 29 * #(group.options or {}) + ((group.language or group.macro) and 30 or 0) + (group.detail and 33 or 0) + (group.fishingBinding and 62 or 0)
+            if group.audioLevel then height = height + 29 end
             if group.about or group.changelog then height = 112 end
             local card = box(panel, 460, height)
             card:SetPoint("TOPLEFT", 0, y)
@@ -1685,6 +1703,18 @@ local function buildSettings()
                 settings.macro:SetPoint("TOPLEFT", 13, -36)
                 settings.macro:SetScript("OnClick", pickupShoppingMacro)
             end
+            if group.audioLevel then
+                local level = button(card, 300, "")
+                level:SetPoint("TOPLEFT", 13, -64)
+                settings.fishingAudioLevel = level
+                level:SetScript("OnClick", function()
+                    ForeverCraftDB.fishingAudioLevel = addon.GetFishingAudioLevel() % 5 + 1
+                    addon.RefreshFishingAudio()
+                    local L = addon.GetText()
+                    level:SetText((L.settingsFishingAudioLevel or addon.strings.enUS.settingsFishingAudioLevel)
+                        :format(addon.GetFishingAudioLevel(), addon.GetFishingAudioReduction()))
+                end)
+            end
             if group.fishingBinding then addon.BuildFishingBindingSettings(card) end
             if group.language then
                 settings.language = button(card, 242, "")
@@ -1732,6 +1762,8 @@ showSettings = function(first)
         entry.control:SetChecked(value)
         entry.control.text:SetText(L[option.label] or fallback[option.label])
     end
+    settings.fishingAudioLevel:SetText((L.settingsFishingAudioLevel or fallback.settingsFishingAudioLevel)
+        :format(addon.GetFishingAudioLevel(), addon.GetFishingAudioReduction()))
     settings.language:SetText(L.language .. "  ·  " .. (addon.languageNames[ForeverCraftDB.language] or L.automatic))
     settings.macro:SetText(L.settingsMacroCreate)
     settings.done:SetText(L.done)

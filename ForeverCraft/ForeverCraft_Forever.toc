@@ -4,7 +4,7 @@
 ## Category: Professions
 ## IconTexture: Interface\AddOns\ForeverCraft\Art\ForeverCraftIcon
 ## Notes: Wider professions window and a reagent planner for WoW Forever.
-## Version: 0.1.114-alpha
+## Version: 0.1.127
 ## OptionalDeps: Auc-Advanced, Auctionator, ProfessionDB
 ## AllowLoadGameType: forever
 ## SavedVariables: ForeverCraftDB
@@ -19,4 +19,6 @@ SideShopping.lua
 Disenchant.lua
 Fishing.lua
 WorkshopLog.lua
+ProfessionGuideData.lua
+ProfessionGuide.lua
 Core.lua

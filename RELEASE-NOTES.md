@@ -1,15 +1,13 @@
-## ForeverCraft 0.1.127
+## ForeverCraft 0.1.128
 
-- **Profession guides:** Training ranks for all 12 WoW Forever professions. Check skill and level requirements, trainer locations for both factions, and where to get books or complete quests for Cooking, Fishing and First Aid.
-- **Guide navigation:** Open all guides from the workshop log or use the guide button in the recipe window. Switch professions from the sidebar and expand individual training ranks for details.
-- **Fishing audio:** Reduce music, ambience and dialogue in five steps while fishing. The effects channel stays at its normal volume. Background playback is optional, and the usual audio mix returns after fishing.
-- **Fishing log:** Hover over the latest catch or any entry in the catch list to see its item tooltip.
-- **Layout:** Aligned the profession overview, guides and recipe window widths when wider windows are enabled.
+- **Item value tooltip:** Item tooltips now show vendor value, auction house value (net of fees) and disenchant value, with a plain sell recommendation. Disenchant values come from Auctionator's own data when installed, or from your own logged disenchant results once you have enough of them; small-sample estimates are marked as such instead of being shown as if they were reliable. Hold Shift (configurable) for the material breakdown. Fully configurable under `/forevercraft` → Item value, including turning the whole thing off.
+- **Disenchant panel:** The bag list now shows each item's best sell value, and a button above it cycles through sorting by disenchant value or expected extra gain, or filtering to only items where disenchanting/selling to a vendor/the auction house is recommended, or items with no value data. Items already queued keep their place.
+- **Fixed:** Re-planning a recipe you had already fully crafted could silently inherit the old, finished order's progress, so the new plan showed the wrong quantity or vanished from the list entirely. Finished orders are now cleared properly, and any such stuck orders from before this fix are cleaned up automatically on login.
+- **Internal:** The version shown in Settings/About now always matches the TOC version instead of a separate, easily-forgotten constant.
 
 ### Deutsch
 
-- **Berufs-Guides:** Alle zwölf Berufe mit Ausbildungsrängen, Voraussetzungen und Lehrern für Horde und Allianz. Für Kochkunst, Angeln und Erste Hilfe sind auch Bücher, Händler und Quests aufgeführt.
-- **Navigation:** Öffne die Guides über das Handwerkslog oder direkt im Rezeptfenster. Links kannst du den Beruf wechseln, rechts die Ausbildungsränge aufklappen.
-- **Angelton:** Dämpfe beim Angeln Musik, Umgebung und Dialoge in fünf Stufen. Soundeffekte behalten ihre Lautstärke. Die Wiedergabe im Hintergrund ist optional. Nach dem Angeln kehren die gewohnten Audioeinstellungen zurück.
-- **Fangbuch:** Der letzte Fang und die Einträge in der Fangliste zeigen beim Überfahren einen Gegenstands-Tooltip.
-- **Fenster:** Berufsübersicht, Guides und Rezeptfenster verwenden bei aktivierter Fensterverbreiterung dieselbe Zielbreite.
+- **Gegenstandsbewertung im Tooltip:** Gegenstands-Tooltips zeigen jetzt Händlerwert, Auktionshauswert (nach Gebühren) und Entzauberungswert mit einer schlichten Verkaufsempfehlung. Die Entzauberungswerte stammen von Auctionator, sofern installiert, sonst aus deinen eigenen protokollierten Entzauberungsergebnissen, sobald genug davon vorliegen; Schätzungen mit zu wenigen Daten werden als solche gekennzeichnet statt als verlässlich dargestellt. Umschalt (einstellbar) gedrückt halten zeigt die Materialaufschlüsselung. Vollständig einstellbar unter `/forevercraft` → Gegenstandswert, auch komplett abschaltbar.
+- **Entzaubern-Panel:** Die Taschenliste zeigt jetzt zu jedem Gegenstand den Wert der besten Verkaufsoption. Ein Button darüber schaltet durch Sortierung nach Entzauberungswert oder erwartetem Mehrerlös sowie Filter für „Entzaubern/Händler/Auktion empfohlen“ und „keine Bewertung möglich“. Bereits eingeplante Gegenstände bleiben dabei an ihrem Platz.
+- **Fehlerbehoben:** Ein bereits vollständig hergestelltes Rezept erneut einzuplanen konnte den alten, abgeschlossenen Fortschritt übernehmen, sodass die neue Planung die falsche Menge zeigte oder ganz aus der Liste verschwand. Abgeschlossene Aufträge werden jetzt korrekt entfernt, und bereits betroffene, hängengebliebene Einträge werden beim Login automatisch bereinigt.
+- **Intern:** Die in Einstellungen/Info angezeigte Version stimmt jetzt immer mit der TOC-Version überein, statt über eine separate, leicht vergessene Konstante zu laufen.

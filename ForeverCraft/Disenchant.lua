@@ -25,7 +25,7 @@ local function readItem(bag, slot)
     if not guid or (issecretvalue and issecretvalue(guid)) then return end
     return {
         guid = guid, bag = bag, slot = slot, link = data.hyperlink, texture = data.iconFileID,
-        locked = data.isLocked,
+        locked = data.isLocked, itemID = data.itemID,
     }
 end
 
@@ -56,11 +56,23 @@ local function update()
 
     local queued = {}
     for index, item in ipairs(queue) do queued[item.guid] = index end
+    -- Queued items always keep their place and order (that is the actual disenchant
+    -- order); only the remaining bag candidates are sorted/filtered by economic value,
+    -- so picking what to queue next is easier without disturbing an already-built queue.
     local displayRows = {}
-    for _, item in ipairs(queue) do displayRows[#displayRows + 1] = byGUID[item.guid] or item end
-    for _, item in ipairs(candidates) do
-        if not queued[item.guid] then displayRows[#displayRows + 1] = item end
+    for _, item in ipairs(queue) do
+        local resolved = byGUID[item.guid] or item
+        resolved.evaluation = addon.EvaluateItem(resolved.link)
+        displayRows[#displayRows + 1] = resolved
     end
+    local sortMode = ForeverCraftDB and ForeverCraftDB.disenchantSortMode or "default"
+    local candidateRows = {}
+    for _, item in ipairs(candidates) do
+        if not queued[item.guid] then candidateRows[#candidateRows + 1] = item end
+    end
+    for _, item in ipairs(candidateRows) do item.evaluation = addon.EvaluateItem(item.link) end
+    candidateRows = addon.SortDisenchantRows(candidateRows, sortMode)
+    for _, item in ipairs(candidateRows) do displayRows[#displayRows + 1] = item end
 
     for index, item in ipairs(displayRows) do
         local row = rows[index]
@@ -111,7 +123,7 @@ local function update()
         row.item, row.queued = item, queued[item.guid]
         row.checkbox:SetChecked(row.queued ~= nil)
         row.icon:SetTexture(item.texture)
-        row.text:SetText(item.link)
+        row.text:SetText(item.link .. addon.FormatDisenchantRowValue(item.evaluation))
         row:SetAlpha(byGUID[item.guid] and 1 or 0.45)
         row:Show()
     end
@@ -228,8 +240,29 @@ local function makePanel(root, nativeHeader)
     help:SetJustifyH("LEFT")
     help:SetWordWrap(true)
 
+    local sortButton = CreateFrame("Button", nil, left, "UIPanelButtonTemplate")
+    sortButton:SetSize(216, 20)
+    sortButton:SetPoint("TOPLEFT", bagTitle, "BOTTOMLEFT", 2, -3)
+    sortButton:SetScript("OnClick", function()
+        local order = addon.disenchantSortOrder
+        local index = 1
+        for current, mode in ipairs(order) do
+            if mode == (ForeverCraftDB.disenchantSortMode or order[1]) then index = current end
+        end
+        ForeverCraftDB.disenchantSortMode = order[index % #order + 1]
+        panel.refreshText()
+    end)
+    sortButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        local hint = addon.GetText().settingsEconomySortHint or addon.strings.enUS.settingsEconomySortHint
+        GameTooltip:AddLine(hint, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    sortButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    panel.sortButton = sortButton
+
     scroll = CreateFrame("ScrollFrame", nil, left, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", 13, -42)
+    scroll:SetPoint("TOPLEFT", 13, -67)
     scroll:SetPoint("BOTTOMRIGHT", -25, 12)
     content = CreateFrame("Frame", nil, scroll)
     content:SetSize(1, 1)
@@ -257,7 +290,7 @@ local function makePanel(root, nativeHeader)
             update()
             return
         end
-        pending = { guid = current.guid }
+        pending = { guid = current.guid, itemID = current.itemID }
         action:SetAttribute("target-bag", current.bag)
         action:SetAttribute("target-slot", current.slot)
         action:SetAttribute("type", "spell")
@@ -287,6 +320,9 @@ local function makePanel(root, nativeHeader)
         bagTitle:SetHeaderText(L.disenchantBag)
         queueTitle:SetHeaderText(L.disenchantQueue)
         if pageTitle then pageTitle:SetText(addon.HeaderTitle(L.disenchantTitle)) end
+        local sortMode = ForeverCraftDB and ForeverCraftDB.disenchantSortMode or "default"
+        local labelKey = addon.disenchantSortLabelKeys[sortMode] or addon.disenchantSortLabelKeys.default
+        sortButton:SetText(L[labelKey] or addon.strings.enUS[labelKey])
         update()
     end
     local titleAlpha, nativePortrait, activePortrait, previousTab
@@ -417,8 +453,28 @@ end
 BINDING_HEADER_FOREVERCRAFT = "ForeverCraft"
 _G["BINDING_NAME_CLICK ForeverCraftDisenchantAction:LeftButton"] = addon.GetText().disenchantTitle
 
+-- Records the actual materials gained from a successful disenchant into the local
+-- statistics log (Economy.lua), so the tooltip's disenchant estimate can fall back to
+-- real observed results when no other data source (e.g. Auctionator) is installed.
+local function recordLootResult()
+    if not pending or not pending.succeeded or pending.recorded or not pending.itemID then return end
+    if ForeverCraftDB and ForeverCraftDB.economyLogDisenchant == false then return end
+    pending.recorded = true
+    local lootItems = {}
+    for slot = 1, GetNumLootItems() do
+        local _, _, quantity = GetLootSlotInfo(slot)
+        local link = GetLootSlotLink(slot)
+        local lootItemID = link and C_Item.GetItemInfoInstant(link)
+        if lootItemID and quantity and quantity > 0 then
+            lootItems[lootItemID] = (lootItems[lootItemID] or 0) + quantity
+        end
+    end
+    addon.RecordDisenchantResult(pending.itemID, lootItems)
+end
+
 eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:RegisterEvent("LOOT_OPENED")
 eventFrame:RegisterEvent("LOOT_CLOSED")
 eventFrame:RegisterEvent("ITEM_LOCK_CHANGED")
 eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
@@ -434,5 +490,6 @@ eventFrame:SetScript("OnEvent", function(_, event, _, _, castSpell)
         if event == "UNIT_SPELLCAST_SUCCEEDED" then pending.succeeded = true
         elseif event == "UNIT_SPELLCAST_FAILED" or event == "UNIT_SPELLCAST_INTERRUPTED" then pending = nil end
     end
+    if event == "LOOT_OPENED" then recordLootResult() end
     update()
 end)

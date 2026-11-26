@@ -6,6 +6,6 @@ A WoW Forever addon for crafting plans, shopping lists, disenchanting, and one-k
 
 Download the installable ZIP from [GitHub Releases](https://github.com/Retronimrod/ForeverCraft/releases). Extract the `ForeverCraft` folder into the WoW Forever client's `Interface/AddOns` directory, then restart or run `/reload`.
 
-Use `/forevercraft` for settings and `/fclist` for the shopping list. [LibProfessionDB](https://www.curseforge.com/wow/addons/libprofessiondb) is optional and recommended for updated skill thresholds.
+Use `/forevercraft` for settings and `/fclist` for the shopping list. [LibProfessionDB](https://www.curseforge.com/wow/addons/libprofessiondb) is optional and recommended for updated skill thresholds. Item tooltips show vendor, auction house and disenchant value with a sell recommendation; [Auctionator](https://www.curseforge.com/wow/addons/auctionator) is optional and improves the auction house and disenchant estimates, otherwise disenchant value is built up from your own observed results over time.
 
 Built for **WoW Forever**, interface 16001. Developed by Fabian (Nimri). The bundled LibProfessionDB data is covered by its included MIT notice.

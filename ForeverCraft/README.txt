@@ -1,4 +1,4 @@
-ForeverCraft 0.1.127 – WoW Forever
+ForeverCraft 0.1.128 – WoW Forever
 
 Installation
 Den Ordner ForeverCraft aus der ZIP in Interface/AddOns deiner
@@ -73,3 +73,21 @@ ihn zur Warteschlange hinzuzufügen. Ein zweiter Klick nimmt ihn wieder
 aus der Liste.
 Unter Tastaturbelegung > ForeverCraft kannst du Entzaubern belegen. Bei
 geöffnetem Reiter löst jeder Tastendruck höchstens eine Entzauberung aus.
+Die Taschenliste zeigt zu jedem Gegenstand den Wert seiner besten
+Verkaufsoption. Der Button über der Liste schaltet durch Sortierung nach
+Entzauberungswert oder erwartetem Mehrerlös sowie Filter für „Entzaubern/
+Händler/Auktion empfohlen“ und „keine Bewertung möglich“. Schon
+eingeplante Gegenstände bleiben dabei an ihrem Platz in der Warteschlange.
+
+Gegenstandswert im Tooltip
+Gegenstands-Tooltips zeigen zusätzlich Händlerwert, Auktionshauswert (nach
+Gebühren) und Entzauberungswert mit einer Empfehlung, welche Option sich
+am meisten lohnt. Umschalt gedrückt halten (unter Einstellungen > Gegenstandswert
+wählbar) zeigt die einzelnen Materialien samt Menge und Preis.
+Der Entzauberungswert stammt von Auctionator, sofern installiert. Ohne
+Auctionator füllt sich die Schätzung aus deinen eigenen Entzauberungen –
+bei zu wenigen eigenen Versuchen wird das deutlich als vorläufig gekennzeichnet
+statt eine scheinbar sichere Zahl zu zeigen. Fehlen alle Datenquellen, bleibt
+der Entzauberungswert leer statt einen falschen Wert zu erfinden.
+Jede einzelne Anzeige lässt sich unter Einstellungen > Gegenstandswert
+abschalten, bis hin zur gesamten Erweiterung.

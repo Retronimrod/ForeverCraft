@@ -1,5 +1,7 @@
-local _, addon = ...
-local version = "0.1.114-alpha"
+local addonName, addon = ...
+-- Fallback only; the real version always comes from the TOC so the two never drift apart.
+local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata
+local version = (getMetadata and getMetadata(addonName, "Version")) or "0.1.128"
 local curseForgeProfile = "https://www.curseforge.com/members/nimri82/projects"
 local events = CreateFrame("Frame")
 local root, page, list, form, planner, settings
@@ -1535,6 +1537,25 @@ local settingPages = {
             { key = "preferAuctionator", label = "settingsAuctionator", defaultOff = true },
         }, detail = "settingsPriceFallback" },
     }},
+    { title = "settingsEconomy", height = 720, groups = {
+        { title = "settingsEconomyGeneral", options = {
+            { key = "economyTooltip", label = "settingsEconomyEnable" },
+            { key = "economyShowVendor", label = "settingsEconomyVendor" },
+            { key = "economyShowAuction", label = "settingsEconomyAuction" },
+            { key = "economyShowNet", label = "settingsEconomyNet" },
+            { key = "economyShowDisenchant", label = "settingsEconomyDisenchant" },
+            { key = "economyShowRecommendation", label = "settingsEconomyRecommendation" },
+            { key = "economyShowUpside", label = "settingsEconomyUpside" },
+            { key = "economyLogDisenchant", label = "settingsEconomyLogToggle" },
+        }},
+        { title = "settingsEconomyDetail", detail = "settingsEconomyDetailHint", economyModifier = true, options = {
+            { key = "economyShowBreakdown", label = "settingsEconomyBreakdown" },
+            { key = "economyShowIcons", label = "settingsEconomyIcons" },
+            { key = "economyShowSource", label = "settingsEconomySource" },
+            { key = "economyShowAge", label = "settingsEconomyAge" },
+            { key = "economyDetailAlways", label = "settingsEconomyAlways", defaultOff = true },
+        }},
+    }},
     { title = "about", groups = {
         { title = "welcomeTitle", about = true },
         { title = "changelogTitle", changelog = true },
@@ -1631,7 +1652,9 @@ local function buildSettings()
         view.groups = {}
         local y = -35
         for _, group in ipairs(pageData.groups) do
-            local height = 43 + 29 * #(group.options or {}) + ((group.language or group.macro) and 30 or 0) + (group.detail and 33 or 0) + (group.fishingBinding and 62 or 0)
+            local hasCycleButton = group.language or group.macro or group.economyModifier
+            local height = 43 + 29 * #(group.options or {}) + (hasCycleButton and 30 or 0)
+                + (group.detail and 33 or 0) + (group.fishingBinding and 62 or 0)
             if group.audioLevel then height = height + 29 end
             if group.about or group.changelog then height = 112 end
             local card = box(panel, 460, height)
@@ -1716,6 +1739,15 @@ local function buildSettings()
                 end)
             end
             if group.fishingBinding then addon.BuildFishingBindingSettings(card) end
+            if group.economyModifier then
+                settings.economyModifier = button(card, 300, "")
+                settings.economyModifier:SetPoint("TOPLEFT", 13, -34 - 29 * #(group.options or {}))
+                settings.economyModifier:SetScript("OnClick", function()
+                    local nextKey = { shift = "ctrl", ctrl = "alt", alt = "shift" }
+                    ForeverCraftDB.economyModifierKey = nextKey[ForeverCraftDB.economyModifierKey or "shift"] or "shift"
+                    showSettings(settings.first)
+                end)
+            end
             if group.language then
                 settings.language = button(card, 242, "")
                 settings.language:SetPoint("TOPLEFT", 13, -36)
@@ -1765,6 +1797,15 @@ showSettings = function(first)
     settings.fishingAudioLevel:SetText((L.settingsFishingAudioLevel or fallback.settingsFishingAudioLevel)
         :format(addon.GetFishingAudioLevel(), addon.GetFishingAudioReduction()))
     settings.language:SetText(L.language .. "  ·  " .. (addon.languageNames[ForeverCraftDB.language] or L.automatic))
+    if settings.economyModifier then
+        local modifierKey = ForeverCraftDB.economyModifierKey or "shift"
+        local keyNames = {
+            shift = L.keyShift or fallback.keyShift, ctrl = L.keyCtrl or fallback.keyCtrl,
+            alt = L.keyAlt or fallback.keyAlt,
+        }
+        local text = L.settingsEconomyModifier or fallback.settingsEconomyModifier
+        settings.economyModifier:SetText(text:format(keyNames[modifierKey]))
+    end
     settings.macro:SetText(L.settingsMacroCreate)
     settings.done:SetText(L.done)
     selectSettingsPage(settings.selected or 1)
@@ -1855,6 +1896,8 @@ events:SetScript("OnEvent", function(_, event, name, _, spellID)
     if event == "ADDON_LOADED" and name == "ForeverCraft" then
         ForeverCraftIntermediateRecipes = type(ForeverCraftIntermediateRecipes) == "table" and ForeverCraftIntermediateRecipes or {}
         ForeverCraftShopping = type(ForeverCraftShopping) == "table" and ForeverCraftShopping or {}
+        addon.CleanupFinishedPlans(ForeverCraftShopping)
+        ForeverCraftDisenchantLog = type(ForeverCraftDisenchantLog) == "table" and ForeverCraftDisenchantLog or {}
         ForeverCraftDB = type(ForeverCraftDB) == "table" and ForeverCraftDB or {}
         if ForeverCraftDB.wide == nil then ForeverCraftDB.wide = true end
         ForeverCraftDB.language = ForeverCraftDB.language or "auto"

@@ -176,7 +176,14 @@ function addon.CompletePlannedCraft(plan, recipeID)
     if entry.target then
         if entry.done >= entry.target then return false end
         entry.done = entry.done + 1
-        addon.SetPlanTarget(entry, entry.target)
+        if entry.done >= entry.target then
+            -- Finished: drop the entry so a later AddShoppingRecipe() for the same
+            -- recipe starts a fresh order (done = 0) instead of inheriting this one's
+            -- done count from a stale, already-completed plan.
+            plan[recipeID] = nil
+        else
+            addon.SetPlanTarget(entry, entry.target)
+        end
         return true
     end
 
@@ -194,6 +201,21 @@ function addon.CompletePlannedCraft(plan, recipeID)
     end
     if changed and not next(items) then plan[recipeID] = nil end
     return changed
+end
+
+function addon.CleanupFinishedPlans(plan)
+    -- Migration for saves written before the CompletePlannedCraft fix above: a
+    -- finished order (done >= target) could be left behind forever and would make
+    -- the next AddShoppingRecipe() for that recipe inherit its done count. Remove
+    -- only entries that are actually finished; open orders are left untouched.
+    local removed = 0
+    for recipeID, entry in pairs(plan) do
+        if type(entry) == "table" and entry.target and entry.done and entry.done >= entry.target then
+            plan[recipeID] = nil
+            removed = removed + 1
+        end
+    end
+    return removed
 end
 
 function addon.RemoveShoppingItem(plan, professionID, itemID)

@@ -1,7 +1,7 @@
 local addonName, addon = ...
 -- Fallback only; the real version always comes from the TOC so the two never drift apart.
 local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata
-local version = (getMetadata and getMetadata(addonName, "Version")) or "0.1.128"
+local version = (getMetadata and getMetadata(addonName, "Version")) or "0.1.134"
 local curseForgeProfile = "https://www.curseforge.com/members/nimri82/projects"
 local events = CreateFrame("Frame")
 local root, page, list, form, planner, settings
@@ -815,6 +815,7 @@ local function showShopping(dock)
     if addon.CloseProfessionGuide then addon.CloseProfessionGuide() end
     if InCombatLockdown() then return end
     addon.CloseDisenchant()
+    addon.CloseBank()
     if not shoppingWindow then
         local shell = CreateFrame("Frame", nil, UIParent, "PortraitFrameTemplate")
         shoppingShell = shell
@@ -1364,6 +1365,7 @@ local function attach()
         click:SetAllPoints()
         click:SetScript("OnClick", function()
             addon.CloseDisenchant()
+            addon.CloseBank()
             if shoppingWindow and shoppingWindow:IsShown() and shoppingDocked then
                 shoppingWindow:Hide()
                 queue()
@@ -1373,22 +1375,42 @@ local function attach()
             end
         end)
         click:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:AddLine(addon.GetText().shopping)
-            GameTooltip:Show()
+            local L = addon.GetText()
+            addon.ui.navTooltip(self, L.shopping, L.navShoppingDesc or addon.strings.enUS.navShoppingDesc)
         end)
         click:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        local function leaveShopping()
+            if shoppingWindow and shoppingWindow:GetParent() == root then shoppingWindow:Hide() end
+        end
+        local bankTab = addon.AttachBank(root, function()
+            leaveShopping()
+            addon.CloseDisenchant()
+            if addon.CloseProfessionGuide then addon.CloseProfessionGuide() end
+        end, header)
+        local financeTab = addon.AttachFinance(root, function()
+            leaveShopping()
+            addon.CloseDisenchant()
+            if addon.CloseProfessionGuide then addon.CloseProfessionGuide() end
+        end, header)
         positionTab = function()
             local last = addon.PositionDisenchantTab(root)
             addon.AnchorProfessionSideTab(shoppingTab, last)
-        end
-        local function leaveShopping()
-            if shoppingWindow and shoppingWindow:GetParent() == root then shoppingWindow:Hide() end
+            addon.AnchorProfessionSideTab(bankTab, shoppingTab)
+            addon.AnchorProfessionSideTab(financeTab, bankTab)
+            -- One compact, coherent navigation rail for Blizzard's and ForeverCraft's tabs.
+            local tabs = { root.ProfessionsOverviewTab }
+            for _, professionTab in ipairs(root.rightProfessionTabs) do
+                if professionTab:IsShown() then tabs[#tabs + 1] = professionTab end
+            end
+            if addon.disenchantTab and addon.disenchantTab:IsShown() then tabs[#tabs + 1] = addon.disenchantTab end
+            tabs[#tabs + 1], tabs[#tabs + 2], tabs[#tabs + 3] = shoppingTab, bankTab, financeTab
+            addon.ui.layoutRail(root, tabs)
         end
         if root.RefreshRightTabs then hooksecurefunc(root, "RefreshRightTabs", positionTab) end
         local function onNativeTabMouseUp(nativeTab, mouseButton)
             if mouseButton ~= "LeftButton" then return end
             addon.CloseDisenchant()
+            addon.CloseBank()
             -- The active profession can be reused without a native tab change.
             if shoppingDocked and nativeTab:GetID() == root.selectedGamepadTabID
                 and not pendingPlanRecipe and not craftBatch then
@@ -1405,7 +1427,7 @@ local function attach()
                 local selectedID = selectedTab:GetID()
                 local changed = selectedID ~= previousNativeTab
                 previousNativeTab = selectedID
-                if changed then addon.CloseDisenchant() end
+                if changed then addon.CloseDisenchant(); addon.CloseBank() end
                 if shoppingDocked and changed then
                     previousTab = nil
                     local switching = pendingPlanRecipe and selectedTab.skillLine == pendingPlanRecipe.profession
@@ -1414,10 +1436,11 @@ local function attach()
             end)
         end
         root:HookScript("OnHide", leaveShopping)
-        addon.AttachDisenchant(root, leaveShopping, header)
+        addon.AttachDisenchant(root, function() leaveShopping(); addon.CloseBank() end, header)
         addon.AttachProfessionGuide(root, page, function()
             leaveShopping()
             addon.CloseDisenchant()
+            addon.CloseBank()
         end)
         addon.AttachFishing(root, page)
         root:HookScript("OnShow", positionTab)
@@ -1556,6 +1579,22 @@ local settingPages = {
             { key = "economyDetailAlways", label = "settingsEconomyAlways", defaultOff = true },
         }},
     }},
+    { title = "settingsBank", groups = {
+        { title = "settingsBankTracking", detail = "settingsBankDetail", bankActions = true, options = {
+            { key = "bankTracking", label = "settingsBankCapture" },
+            { key = "inventoryTracking", label = "settingsInventoryCapture" },
+            { key = "inventoryTooltip", label = "settingsInventoryTooltip" },
+            { key = "shoppingCrossCharacter", label = "settingsShoppingStock" },
+        }},
+    }},
+    { title = "settingsFinance", height = 560, groups = {
+        { title = "settingsFinanceTracking", detail = "settingsFinanceDetail", financeActions = true, options = {
+            { key = "financeTracking", label = "settingsFinanceEnable" },
+            { key = "financeSeparateTransfers", label = "settingsFinanceTransfers" },
+            { key = "financeSnapshots", label = "settingsFinanceSnapshots" },
+            { key = "financeIncludeEquipment", label = "settingsFinanceEquipment", defaultOff = true },
+        }},
+    }},
     { title = "about", groups = {
         { title = "welcomeTitle", about = true },
         { title = "changelogTitle", changelog = true },
@@ -1652,10 +1691,12 @@ local function buildSettings()
         view.groups = {}
         local y = -35
         for _, group in ipairs(pageData.groups) do
-            local hasCycleButton = group.language or group.macro or group.economyModifier
+            local hasCycleButton = group.language or group.macro or group.economyModifier or group.bankActions
+            if group.financeActions then hasCycleButton = true end
             local height = 43 + 29 * #(group.options or {}) + (hasCycleButton and 30 or 0)
                 + (group.detail and 33 or 0) + (group.fishingBinding and 62 or 0)
             if group.audioLevel then height = height + 29 end
+            if group.financeActions then height = height + 30 end
             if group.about or group.changelog then height = 112 end
             local card = box(panel, 460, height)
             card:SetPoint("TOPLEFT", 0, y)
@@ -1739,6 +1780,45 @@ local function buildSettings()
                 end)
             end
             if group.fishingBinding then addon.BuildFishingBindingSettings(card) end
+            if group.financeActions then
+                local top = -34 - 29 * #(group.options or {})
+                local function cycleSetting(key, values, fallback)
+                    local current = ForeverCraftDB[key] or fallback
+                    for i, value in ipairs(values) do
+                        if value == current then ForeverCraftDB[key] = values[i % #values + 1]; return end
+                    end
+                    ForeverCraftDB[key] = values[1]
+                end
+                settings.financePeriod = button(card, 210, "")
+                settings.financePeriod:SetPoint("TOPLEFT", 13, top)
+                settings.financePeriod:SetScript("OnClick", function()
+                    cycleSetting("financeDefaultPeriod", addon.ledger.financePeriods, "30d"); showSettings(settings.first)
+                end)
+                settings.financeMethod = button(card, 230, "")
+                settings.financeMethod:SetPoint("LEFT", settings.financePeriod, "RIGHT", 8, 0)
+                settings.financeMethod:SetScript("OnClick", function()
+                    cycleSetting("financeDefaultMethod", addon.finance.methods, "best"); showSettings(settings.first)
+                end)
+                settings.financeRetention = button(card, 210, "")
+                settings.financeRetention:SetPoint("TOPLEFT", settings.financePeriod, "BOTTOMLEFT", 0, -6)
+                settings.financeRetention:SetScript("OnClick", function()
+                    cycleSetting("financeRetention", addon.ledger.financeRetentions, 90); showSettings(settings.first)
+                end)
+                settings.financeReset = button(card, 230, "")
+                settings.financeReset:SetPoint("LEFT", settings.financeRetention, "RIGHT", 8, 0)
+                settings.financeReset:SetScript("OnClick", function() addon.ledger.confirmFinanceReset(addon.ledger.ALL) end)
+            end
+            if group.bankActions then
+                local top = -34 - 29 * #(group.options or {})
+                settings.bankOpen = button(card, 150, "")
+                settings.bankOpen:SetPoint("TOPLEFT", 13, top)
+                settings.bankOpen:SetScript("OnClick", function() addon.ledger.show("bank") end)
+                settings.bankReset = button(card, 260, "")
+                settings.bankReset:SetPoint("LEFT", settings.bankOpen, "RIGHT", 8, 0)
+                settings.bankReset:SetScript("OnClick", function()
+                    addon.ledger.confirmReset()
+                end)
+            end
             if group.economyModifier then
                 settings.economyModifier = button(card, 300, "")
                 settings.economyModifier:SetPoint("TOPLEFT", 13, -34 - 29 * #(group.options or {}))
@@ -1797,6 +1877,20 @@ showSettings = function(first)
     settings.fishingAudioLevel:SetText((L.settingsFishingAudioLevel or fallback.settingsFishingAudioLevel)
         :format(addon.GetFishingAudioLevel(), addon.GetFishingAudioReduction()))
     settings.language:SetText(L.language .. "  ·  " .. (addon.languageNames[ForeverCraftDB.language] or L.automatic))
+    if settings.financePeriod then
+        local function t(key) return L[key] or fallback[key] or key end
+        settings.financePeriod:SetText(t("settingsFinancePeriod"):format(t("financePeriod_" .. (ForeverCraftDB.financeDefaultPeriod or "30d"))))
+        settings.financeMethod:SetText(t("financeMethod_" .. (ForeverCraftDB.financeDefaultMethod or "best")))
+        local days = ForeverCraftDB.financeRetention or 90
+        settings.financeRetention:SetText(days == 0 and t("settingsFinanceKeepAll") or t("settingsFinanceKeepDays"):format(days))
+        settings.financeReset:SetText(t("settingsFinanceReset"))
+        local resetText = settings.financeReset:GetFontString()
+        if resetText then resetText:SetTextColor(1, 0.35, 0.3) end
+    end
+    if settings.bankOpen then
+        settings.bankOpen:SetText(L.settingsBankOpen or fallback.settingsBankOpen)
+        settings.bankReset:SetText(L.settingsBankReset or fallback.settingsBankReset)
+    end
     if settings.economyModifier then
         local modifierKey = ForeverCraftDB.economyModifierKey or "shift"
         local keyNames = {

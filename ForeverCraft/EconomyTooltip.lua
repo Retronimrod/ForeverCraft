@@ -160,7 +160,8 @@ end
 
 if TooltipDataProcessor and Enum.TooltipDataType then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip)
-        if not validTooltip(tooltip) then return end
+        -- Some item tooltips (embedded/comparison frames) have no GetItem; skip them.
+        if not validTooltip(tooltip) or type(tooltip.GetItem) ~= "function" then return end
         local _, link = tooltip:GetItem()
         if link then addEconomyLines(tooltip, link) end
     end)

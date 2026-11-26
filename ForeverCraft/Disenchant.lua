@@ -401,8 +401,14 @@ end
 
 function addon.PositionDisenchantTab(root)
     local last = root.ProfessionsOverviewTab
-    local showTab = tab and (not ForeverCraftDB or ForeverCraftDB.showDisenchant ~= false) and hasSpell()
-    if tab then tab:SetShown(showTab and true or false) end
+    -- Shown whenever enabled; without the spell it stays visible but greyed out with an
+    -- explaining tooltip instead of silently disappearing.
+    local showTab = tab and (not ForeverCraftDB or ForeverCraftDB.showDisenchant ~= false)
+    if tab then
+        tab:SetShown(showTab and true or false)
+        tab.Icon:SetDesaturated(not hasSpell())
+        tab.Icon:SetAlpha(hasSpell() and 1 or 0.5)
+    end
     local inserted
     for _, professionTab in ipairs(root.rightProfessionTabs) do
         if professionTab:IsShown() then
@@ -425,6 +431,7 @@ end
 function addon.AttachDisenchant(root, closeShopping, nativeHeader)
     if tab then return end
     tab = CreateFrame("Frame", nil, root, "LargeSideTabButtonTemplate")
+    addon.disenchantTab = tab
     tab.fillToInterior = true
     tab:SetFrameStrata("DIALOG")
     tab.Icon:SetTexture(spellIcon())
@@ -432,9 +439,11 @@ function addon.AttachDisenchant(root, closeShopping, nativeHeader)
     local click = CreateFrame("Button", nil, tab)
     click:SetAllPoints()
     click:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(addon.GetText().disenchantTitle)
-        GameTooltip:Show()
+        local L, fallback = addon.GetText(), addon.strings.enUS
+        local key = GetBindingKey and GetBindingKey("CLICK ForeverCraftDisenchantAction:LeftButton")
+        addon.ui.navTooltip(self, L.disenchantTitle, L.navDisenchantDesc or fallback.navDisenchantDesc,
+            key and (L.navBinding or fallback.navBinding):format(GetBindingText and GetBindingText(key) or key) or nil,
+            not hasSpell() and (L.navDisenchantUnavailable or fallback.navDisenchantUnavailable) or nil)
     end)
     click:SetScript("OnLeave", function() GameTooltip:Hide() end)
     click:SetScript("OnClick", function()

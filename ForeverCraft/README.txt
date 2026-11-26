@@ -1,4 +1,4 @@
-ForeverCraft 0.1.128 – WoW Forever
+ForeverCraft 0.1.134 – WoW Forever
 
 Installation
 Den Ordner ForeverCraft aus der ZIP in Interface/AddOns deiner
@@ -91,3 +91,21 @@ statt eine scheinbar sichere Zahl zu zeigen. Fehlen alle Datenquellen, bleibt
 der Entzauberungswert leer statt einen falschen Wert zu erfinden.
 Jede einzelne Anzeige lässt sich unter Einstellungen > Gegenstandswert
 abschalten, bis hin zur gesamten Erweiterung.
+
+Bank (ab 0.1.129)
+/fcbank öffnet die Bankansicht. Sie zeigt die gespeicherte Bank jedes
+Charakters dieses Accounts, auch ohne Bankier. Öffne die Bank pro Charakter
+einmal, damit sie erfasst wird. Links wählst du den Charakter oder „Alle
+Charaktere“, oben suchst, filterst und sortierst du. Gegenstands-Tooltips
+zeigen den Bestand aller Charaktere. In Einkaufsliste und Materialplaner
+steht bei fehlenden Materialien, wie viele auf der Bank oder bei anderen
+Charakteren liegen. Einstellungen unter Einstellungen > Bank.
+
+Finanzen (ab 0.1.130)
+/fcfinance oder der Münz-Reiter im Berufsfenster. Geldbewegungen werden im
+Hintergrund erfasst und nach Herkunft eingeordnet; Unklares steht unter
+„Sonstige“ und lässt sich unter Transaktionen per „Kategorie ändern“
+korrigieren. Links Charakter oder „Alle Charaktere“, oben Bereich,
+Zeitraum und Bewertungsmethode. Transfers zwischen eigenen Charakteren
+zählen nicht als Gewinn oder Verlust. Einstellungen unter Einstellungen >
+Finanzen. Daten anderer Charaktere sind gespeicherte Stände, keine Live-Daten.

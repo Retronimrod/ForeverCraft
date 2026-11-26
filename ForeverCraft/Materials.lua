@@ -164,6 +164,7 @@ function addon.GetPlanRows(plan)
             stock[id] = math.max(0, owned - need)
             if need > owned then
                 row.missing[#row.missing + 1] = ("%d × %s"):format(need - owned, itemName(id))
+                    .. (addon.StockSuffix and addon.StockSuffix(id) or "")
             end
         end
     end
@@ -263,6 +264,7 @@ function addon.GetShoppingLines(plan)
                 itemIDs[#itemIDs + 1] = itemID
                 quantities[#quantities + 1] = needed - owned
                 rows[#rows + 1] = ("%d × %s"):format(needed - owned, itemName(itemID))
+                    .. (addon.StockSuffix and addon.StockSuffix(itemID) or "")
             end
         end
         if #rows > 0 then
@@ -325,6 +327,7 @@ function addon.GetMaterialLines(recipeID, quantity)
             lines[#lines + 1] = "|cff80c980" .. L.ready:format(itemName(id), owned, needed) .. "|r"
         else
             lines[#lines + 1] = "|cffff8080" .. L.missing:format(itemName(id), owned, needed, missing) .. "|r"
+                .. (addon.StockSuffix and addon.StockSuffix(id) or "")
             outputs = outputs or buildOutputIndex()
             local source = outputs[id]
             if source and source.recipeID ~= recipeID and not source.items[id] then

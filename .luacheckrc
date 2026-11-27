@@ -14,7 +14,7 @@ exclude_files = {
 -- Blizzard-WoW-API, Lua-Erweiterungen und optionale Fremd-Addons (AucAdvanced/Auctionator),
 -- die dieses Addon lesend verwendet.
 read_globals = {
-    "ACCEPT", "AucAdvanced", "AuctionHouseFrameDisplayMode", "Auctionator", "BuyMerchantItem",
+    "ACCEPT", "AucAdvanced", "GetChannelList", "IsInGuild", "SendChatMessage", "C_ChatInfo", "UnitGUID", "AuctionHouseFrameDisplayMode", "Auctionator", "BuyMerchantItem",
     "CANCEL", "C_AddOns", "C_Bank", "GetNormalizedRealmName", "MenuResponse", "UNKNOWNOBJECT", "UnitFullName", "AutoLootMailItem", "C_AuctionHouse", "C_QuestLog", "GetInboxHeaderInfo", "GetInboxInvoiceInfo", "GetSendMailMoney", "GetSendMailPrice", "IsTradeskillTrainer", "RepairAllItems", "SendMail", "TakeInboxMoney", "CLASS_ICON_TCOORDS", "GetRealmName", "ITEM_QUALITY_COLORS", "PanelTemplates_DeselectTab", "PanelTemplates_SelectTab", "PanelTemplates_SetNumTabs", "PanelTemplates_TabResize", "PanelTemplates_SetTab", "RAID_CLASS_COLORS", "UISpecialFrames", "UnitClass", "UnitLevel", "UnitName", "tinsert", "unpack", "C_Browser", "C_CVar", "C_Container", "C_Item", "C_MerchantFrame", "C_Spell",
     "C_SpellBook", "C_Timer", "C_TradeSkillUI", "ClearOverrideBindings", "CreateColor",
     "CreateFrame", "CreateMacro", "Enum", "GREEN_FONT_COLOR", "GameFontHighlight",
@@ -35,10 +35,11 @@ read_globals = {
 -- Vom Addon selbst gesetzte globale Namen (SavedVariables, Slash-Befehle, Bindings).
 globals = {
     "ForeverCraftDB", "ForeverCraftDisenchantLog", "ForeverCraftInventory", "ForeverCraftFinance", "SLASH_FOREVERCRAFTBANK1", "SLASH_FOREVERCRAFTFINANCE1", "ForeverCraftIntermediateRecipes",
-    "ForeverCraftShopping", "ForeverCraftWorkshopLog", "BINDING_HEADER_FOREVERCRAFT",
+    "ForeverCraftShopping", "ForeverCraftWorkshopLog", "ForeverCraftOffers", "BINDING_HEADER_FOREVERCRAFT",
     "SLASH_FOREVERCRAFT1", "SLASH_FOREVERCRAFTLIST1", "StaticPopupDialogs",
 }
 
 -- Lokalisierungskataloge: lange Zeilen durch uebersetzte Strings sind hier unvermeidbar.
 files["ForeverCraft/Locale.lua"] = { max_line_length = false }
 files["ForeverCraft/ClientLocales.lua"] = { max_line_length = false }
+files["ForeverCraft/OfferLocales.lua"] = { max_line_length = false }

@@ -1,7 +1,7 @@
 local addonName, addon = ...
 -- Fallback only; the real version always comes from the TOC so the two never drift apart.
 local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata
-local version = (getMetadata and getMetadata(addonName, "Version")) or "0.1.134"
+local version = (getMetadata and getMetadata(addonName, "Version")) or "0.1.136"
 local curseForgeProfile = "https://www.curseforge.com/members/nimri82/projects"
 local events = CreateFrame("Frame")
 local root, page, list, form, planner, settings
@@ -1106,6 +1106,8 @@ local function createWelcomeColumn(book)
     art:SetVertexColor(0.79, 0.66, 0.53, 0.17)
 
     addon.BuildWorkshopLog(column)
+    -- Offer buttons at the bottom of the crafting log (they replace the profession guide button there).
+    if addon.AttachOfferButtons then addon.AttachOfferButtons(column) end
     column:Hide()
     return column
 end
@@ -1185,7 +1187,8 @@ local function updateLayout(fromSizeChange)
     end
     if welcomeColumn then welcomeColumn:SetShown(logVisible == true) end
     if addon.SetProfessionGuideOverviewCard then
-        addon.SetProfessionGuideOverviewCard(logVisible and welcomeColumn or nil)
+        -- The profession guides stay in the title bar; the log card holds the offer buttons.
+        addon.SetProfessionGuideOverviewCard(nil)
     end
     local forList, forForm = 0, 0
     if recipes and (not ForeverCraftDB or ForeverCraftDB.wide ~= false) then
@@ -1595,6 +1598,22 @@ local settingPages = {
             { key = "financeIncludeEquipment", label = "settingsFinanceEquipment", defaultOff = true },
         }},
     }},
+    { title = "settingsOffers", height = 720, groups = {
+        { title = "settingsOffersMessage", offerMessage = true, options = {
+            { key = "offerShowSkill", label = "opt_showSkill" },
+            { key = "offerShowMax", label = "opt_showMax" },
+            { key = "offerProfessionLinks", label = "opt_professionLinks", defaultOff = true },
+            { key = "offerRecipeLinks", label = "opt_recipeLinks" },
+            { key = "offerHighlightRecipes", label = "opt_highlightRecipes" },
+            { key = "offerShowConditions", label = "opt_showConditions" },
+            { key = "offerAskWhisper", label = "opt_askWhisper" },
+        }},
+        { title = "settingsOffersPosting", detail = "settingsOffersDetail", offerPosting = true, options = {
+            { key = "offerQuickPost", label = "settingsOfferQuick", defaultOff = true },
+            { key = "offerPreviewShow", label = "settingsOfferPreview" },
+            { key = "offerConfirmSend", label = "settingsOfferConfirm" },
+        }},
+    }},
     { title = "about", groups = {
         { title = "welcomeTitle", about = true },
         { title = "changelogTitle", changelog = true },
@@ -1613,6 +1632,8 @@ local function applySetting(key)
     elseif key == "showDisenchant" then
         if ForeverCraftDB.showDisenchant == false then addon.CloseDisenchant() end
         if positionTab then positionTab() end
+    elseif key:sub(1, 5) == "offer" then
+        if addon.offerUI.window and addon.offerUI.window:IsShown() then addon.offerUI.refreshAll() end
     elseif key == "merchantList" or key == "auctionList" then
         local kind = key == "merchantList" and "merchant" or "auction"
         if ForeverCraftDB[key] == false then
@@ -1627,7 +1648,7 @@ end
 
 local function selectSettingsPage(index)
     settings.selected = index
-    settings:SetHeight(settingPages[index].height or 388)
+    settings:SetHeight(settingPages[index].height or 422)
     for pageIndex, view in ipairs(settings.pages) do
         local selected = pageIndex == index
         view.panel:SetShown(selected)
@@ -1640,7 +1661,7 @@ local function buildSettings()
     settings = CreateFrame("Frame", nil, UIParent, "PortraitFrameTemplate")
     settings:Hide()
     addon.AddSettingsGear(settings)
-    settings:SetSize(686, 388)
+    settings:SetSize(686, 422)
     settings:SetPoint("CENTER")
     settings:SetFrameStrata("DIALOG")
     settings:SetPortraitToAsset("Interface\\AddOns\\ForeverCraft\\Art\\ForeverCraftIcon")
@@ -1659,8 +1680,10 @@ local function buildSettings()
         addon.SetFishingSettingsOpen(false)
     end)
 
-    local sidebar = box(settings, 164, 311)
+    -- The sidebar grows with the window so every page fits (nine pages need 336 px).
+    local sidebar = box(settings, 164, 345)
     sidebar:SetPoint("TOPLEFT", 10, -56)
+    sidebar:SetPoint("BOTTOMLEFT", 10, 21)
     sidebar:SetBackdropColor(0.11, 0.08, 0.05, 1)
     local build = label(sidebar, "GameFontDisableSmall", "v" .. version)
     build:SetPoint("BOTTOMLEFT", 12, 13)
@@ -1696,6 +1719,8 @@ local function buildSettings()
             local height = 43 + 29 * #(group.options or {}) + (hasCycleButton and 30 or 0)
                 + (group.detail and 33 or 0) + (group.fishingBinding and 62 or 0)
             if group.audioLevel then height = height + 29 end
+            if group.offerMessage then height = height + 94 end
+            if group.offerPosting then height = height + 124 end
             if group.financeActions then height = height + 30 end
             if group.about or group.changelog then height = 112 end
             local card = box(panel, 460, height)
@@ -1819,6 +1844,31 @@ local function buildSettings()
                     addon.ledger.confirmReset()
                 end)
             end
+            if group.offerMessage or group.offerPosting then
+                -- Cycle buttons in the existing style (like language/macro), one per row so
+                -- long translated terms are never cut.
+                local top = -34 - 29 * #(group.options or {})
+                local offerUI = addon.offerUI
+                local function cycle(key, values, fallback)
+                    return function() offerUI.cycle(key, values, fallback); showSettings(settings.first) end
+                end
+                local buttons = group.offerMessage and {
+                    { "offerConditionButton", cycle("offerCondition", addon.offers.conditions, "matsTip") },
+                    { "offerTemplateButton", cycle("offerTemplate", addon.offers.templates, "casual") },
+                    { "offerLanguageButton", cycle("offerLanguage", addon.offers.languages, "auto") },
+                } or {
+                    { "offerCooldownButton", cycle("offerCooldown", addon.offers.cooldowns, 120) },
+                    { "offerChannelButton", cycle("offerChannel", { "trade", "guild", "general" }, "trade") },
+                    { "offerOpenButton", function() settings:Hide(); offerUI.open() end },
+                    { "offerTemplatesButton", function() settings:Hide(); offerUI.open(); offerUI.showTemplates() end },
+                }
+                for position, entry in ipairs(buttons) do
+                    local control = button(card, 434, "")
+                    control:SetPoint("TOPLEFT", 13, top - (position - 1) * 30)
+                    control:SetScript("OnClick", entry[2])
+                    settings[entry[1]] = control
+                end
+            end
             if group.economyModifier then
                 settings.economyModifier = button(card, 300, "")
                 settings.economyModifier:SetPoint("TOPLEFT", 13, -34 - 29 * #(group.options or {}))
@@ -1877,6 +1927,17 @@ showSettings = function(first)
     settings.fishingAudioLevel:SetText((L.settingsFishingAudioLevel or fallback.settingsFishingAudioLevel)
         :format(addon.GetFishingAudioLevel(), addon.GetFishingAudioReduction()))
     settings.language:SetText(L.language .. "  ·  " .. (addon.languageNames[ForeverCraftDB.language] or L.automatic))
+    if settings.offerConditionButton then
+        local function t(key) return L[key] or fallback[key] or key end
+        local offerUI = addon.offerUI
+        settings.offerConditionButton:SetText(t("settingsOfferCondition"):format(offerUI.labelFor("offerCondition")))
+        settings.offerTemplateButton:SetText(t("settingsOfferTemplate"):format(offerUI.labelFor("offerTemplate")))
+        settings.offerLanguageButton:SetText(t("settingsOfferLanguage"):format(offerUI.labelFor("offerLanguage")))
+        settings.offerCooldownButton:SetText(t("settingsOfferCooldown"):format(ForeverCraftDB.offerCooldown or 120))
+        settings.offerChannelButton:SetText(t("settingsOfferChannel"):format(offerUI.labelFor("offerChannel")))
+        settings.offerOpenButton:SetText(t("settingsOfferOpen"))
+        settings.offerTemplatesButton:SetText(t("settingsOfferTemplates"))
+    end
     if settings.financePeriod then
         local function t(key) return L[key] or fallback[key] or key end
         settings.financePeriod:SetText(t("settingsFinancePeriod"):format(t("financePeriod_" .. (ForeverCraftDB.financeDefaultPeriod or "30d"))))

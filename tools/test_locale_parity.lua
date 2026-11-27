@@ -7,6 +7,7 @@
 local addonTable = {}
 loadfile("ForeverCraft/Locale.lua")("ForeverCraft", addonTable)
 loadfile("ForeverCraft/ClientLocales.lua")("ForeverCraft", addonTable)
+loadfile("ForeverCraft/OfferLocales.lua")("ForeverCraft", addonTable)
 
 local function keySet(dictionary)
     local keys = {}

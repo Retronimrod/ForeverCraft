@@ -1,4 +1,4 @@
-ForeverCraft 0.1.134 – WoW Forever
+ForeverCraft 0.1.136 – WoW Forever
 
 Installation
 Den Ordner ForeverCraft aus der ZIP in Interface/AddOns deiner
@@ -6,6 +6,25 @@ WoW-Forever-Installation entpacken. Danach einloggen oder /reload eingeben.
 Die Einstellungen erreichst du über das Zahnrad im Berufsfenster oder /forevercraft.
 Dort kannst du die Anzeige und die Einkaufslisten einstellen und Auctionator
 als bevorzugte Preisquelle wählen. Änderungen werden sofort gespeichert.
+
+Handwerk anbieten
+„Handwerk anbieten“ darunter postet das gespeicherte Angebot (aktives Profil) mit einem
+Klick im eingestellten Kanal; der Untertitel zeigt Bereitschaft, Wartezeit oder einen
+fehlenden Handelschat. Rechtsklick: Profil wechseln, Vorschau, konfigurieren.
+Unten im Handwerkslog der Berufsübersicht öffnet „Angebot konfigurieren“ ein Fenster,
+in dem du deine Berufe und besondere Rezepte für den Handelschat zusammenstellst:
+Konditionen (gemeinsam oder pro Beruf, auch mit fester Vergütung in Gold, Silber
+und Kupfer), Vorlage, Sprache der Nachricht und Kanal. Die Vorschau lässt sich
+vor dem Senden bearbeiten und zeigt die Länge (höchstens 255 Zeichen).
+ForeverCraft merkt sich Rezepte und Berufslink jedes Berufs, sobald du ihn einmal
+öffnest; die Rezeptauswahl zeigt danach alle gewählten Berufe gemeinsam.
+Rezepte, deren Ergebnis beim Aufheben gebunden wird, sind nicht auswählbar;
+Verzauberungen schon. Eigene Vorlagen nutzen Platzhalter wie {berufe_skill}.
+Profile speichern ein Angebot pro Charakter. Rechtsklick auf die Schaltfläche
+listet die Profile, Shift + Linksklick veröffentlicht das letzte Angebot, wenn
+das in den Einstellungen aktiviert ist. Gesendet wird nur per Klick; eine
+lokale Wartezeit (60–300 Sekunden) verhindert versehentliche Doppelposts.
+Der Handelschat wird über seinen Namen gefunden, nicht über die Kanalnummer.
 
 Handwerksfenster
 Die breitere Ansicht ist vorausgewählt. Bei wenig Platz wird die Breite

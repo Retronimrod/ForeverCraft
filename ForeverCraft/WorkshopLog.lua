@@ -85,6 +85,8 @@ function addon.BuildWorkshopLog(column)
     local progress = line("GameFontNormal", -205, 17)
     local skills = line("GameFontHighlightSmall", -228, 110)
     skills:SetSpacing(3)
+    -- Ends above the offer buttons at the bottom of the card.
+    skills:SetPoint("BOTTOM", column, "BOTTOM", 0, 146)
 
     refresh = function(force)
         if not force and not column:IsVisible() then return end
